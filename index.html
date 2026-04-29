@@ -39,7 +39,6 @@
   <button id="closeBtn" onclick="closeWindow()">キャンセル</button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
 <script>
 const statusEl = document.getElementById('status');
 let scanner = null;
@@ -58,9 +57,36 @@ function looksLikeNewPlateQr(text) {
   return (parts[0] || '').trim() === '2' && (parts[1] || '').trim().length > 0;
 }
 
-function start() {
-  if (typeof Html5Qrcode === 'undefined') {
-    setStatus('QRライブラリの読込に失敗しました', 'warn');
+// CDN読込（複数フォールバック）
+function loadQrLib() {
+  const sources = [
+    'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
+    'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
+    'https://cdn.jsdelivr.net/npm/html5-qrcode/html5-qrcode.min.js',
+    'https://unpkg.com/html5-qrcode/html5-qrcode.min.js',
+  ];
+  return sources.reduce(
+    (p, src) => p.then(loaded => loaded || tryLoad(src)),
+    Promise.resolve(false)
+  );
+}
+function tryLoad(src) {
+  return new Promise(resolve => {
+    if (typeof Html5Qrcode !== 'undefined') return resolve(true);
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.onload = () => resolve(typeof Html5Qrcode !== 'undefined');
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+async function start() {
+  setStatus('QRライブラリ読込中...');
+  const ok = await loadQrLib();
+  if (!ok) {
+    setStatus('⚠ QRライブラリの読込に失敗しました（電波/ファイアウォールをご確認ください）', 'warn');
     return;
   }
   try {
