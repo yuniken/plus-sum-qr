@@ -49,11 +49,18 @@ function setStatus(msg, cls) {
   statusEl.className = cls || '';
 }
 
+// URLパラメータでモード切替: ?mode=any で何でも受け入れ
+function getMode() {
+  const m = (location.search.match(/[?&]mode=([^&]+)/) || [])[1];
+  return m ? decodeURIComponent(m) : 'default';
+}
+
 // 受け入れ可能な形式判定:
-// - 右QR(車検記録事項): "2/<管轄> <分類>..."
-// - 案件管理QR: "CASE:NKT-2544"
+// - default: 右QR(2/...) または 案件管理QR(CASE:...)
+// - any: 何でもOK（送り状番号など）
 function looksLikeAcceptedQr(text) {
   if (!text) return false;
+  if (getMode() === 'any') return String(text).trim().length > 0;
   // 案件QR
   if (/^CASE:.+/.test(String(text).trim())) return true;
   // 右QR
@@ -106,7 +113,9 @@ async function start() {
     onSuccess,
     () => { /* 失敗フレームは無視 */ }
   ).then(() => {
-    setStatus('QRコード を枠内に合わせてください（車検証右QR / 案件QR）');
+    setStatus(getMode() === 'any'
+      ? '送り状などのQRコード を枠内に合わせてください'
+      : 'QRコード を枠内に合わせてください（車検証右QR / 案件QR）');
   }).catch(err => {
     const m = (err && err.message) ? err.message : String(err);
     if (/Permission|NotAllowed/i.test(m)) {
