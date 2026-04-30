@@ -101,20 +101,40 @@ async function start() {
     setStatus('⚠ QRライブラリの読込に失敗しました（電波/ファイアウォールをご確認ください）', 'warn');
     return;
   }
+  const isAnyMode = getMode() === 'any';
+  // mode=any のときは QR + 主要バーコードフォーマットも対応 (送り状用)
+  // 数値はHtml5QrcodeSupportedFormats: 0=QR_CODE, 3=CODE_39, 5=CODE_128, 8=ITF, 9=EAN_13, 10=EAN_8, 14=UPC_A
+  const formatsToSupport = isAnyMode ? [0, 3, 5, 8, 9, 10, 14] : [0];
   try {
-    scanner = new Html5Qrcode('qr-reader', false);
+    scanner = new Html5Qrcode('qr-reader', {
+      formatsToSupport: formatsToSupport,
+      useBarCodeDetectorIfSupported: true,
+      verbose: false,
+    });
   } catch (e) {
     setStatus('スキャナ初期化失敗: ' + (e.message || e), 'warn');
     return;
   }
+  // バーコード認識はワイドな枠の方が読みやすい
+  const qrbox = isAnyMode
+    ? { width: 320, height: 140 }
+    : { width: 280, height: 280 };
+  // 視覚枠も合わせる
+  const frame = document.getElementById('frame');
+  if (frame && isAnyMode) {
+    frame.style.width = '85vmin';
+    frame.style.maxWidth = '380px';
+    frame.style.height = '38vmin';
+    frame.style.maxHeight = '160px';
+  }
   scanner.start(
     { facingMode: 'environment' },
-    { fps: 12, qrbox: { width: 280, height: 280 }, aspectRatio: 1.7777778 },
+    { fps: 12, qrbox: qrbox, aspectRatio: 1.7777778 },
     onSuccess,
     () => { /* 失敗フレームは無視 */ }
   ).then(() => {
-    setStatus(getMode() === 'any'
-      ? '送り状などのQRコード を枠内に合わせてください'
+    setStatus(isAnyMode
+      ? '送り状のQR/バーコード を枠内に合わせてください'
       : 'QRコード を枠内に合わせてください（車検証右QR / 案件QR）');
   }).catch(err => {
     const m = (err && err.message) ? err.message : String(err);
