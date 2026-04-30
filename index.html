@@ -30,7 +30,7 @@
 </head>
 <body>
 <div id="wrap">
-  <div id="header"><h1>📷 新ナンバー QR スキャン</h1></div>
+  <div id="header"><h1>📷 QR スキャン</h1></div>
   <div id="cam">
     <div id="qr-reader"></div>
     <div id="overlay"><div id="frame"></div></div>
@@ -49,9 +49,14 @@ function setStatus(msg, cls) {
   statusEl.className = cls || '';
 }
 
-// 右QR(車検記録事項)の判定
-function looksLikeNewPlateQr(text) {
+// 受け入れ可能な形式判定:
+// - 右QR(車検記録事項): "2/<管轄> <分類>..."
+// - 案件管理QR: "CASE:NKT-2544"
+function looksLikeAcceptedQr(text) {
   if (!text) return false;
+  // 案件QR
+  if (/^CASE:.+/.test(String(text).trim())) return true;
+  // 右QR
   const parts = String(text).split('/');
   if (parts.length < 2) return false;
   return (parts[0] || '').trim() === '2' && (parts[1] || '').trim().length > 0;
@@ -101,7 +106,7 @@ async function start() {
     onSuccess,
     () => { /* 失敗フレームは無視 */ }
   ).then(() => {
-    setStatus('車検証 右側QR を枠内に合わせてください');
+    setStatus('QRコード を枠内に合わせてください（車検証右QR / 案件QR）');
   }).catch(err => {
     const m = (err && err.message) ? err.message : String(err);
     if (/Permission|NotAllowed/i.test(m)) {
@@ -116,7 +121,7 @@ async function start() {
 
 function onSuccess(text) {
   if (stopped) return;
-  if (!looksLikeNewPlateQr(text)) {
+  if (!looksLikeAcceptedQr(text)) {
     // 違うフォーマットなら継続スキャン
     return;
   }
